@@ -35,13 +35,12 @@ The package provides command-line utilities for working with mesh files. For mor
    Use the `slim_uv` command to flatten a mesh with the following options:
 
    ```bash
-   slim_uv --path 20241025062044_intermediate_mesh.obj --ic harmonic --iter 200 --um 7.91
+   slim_uv --path 20241025062044_intermediate_mesh.obj --ic harmonic --iter 200
    ```
 
    - `--path`: Path to the intermediate mesh file (e.g., `.obj` file).
    - `--ic`: Initial condition; options are `harmonic` or `arap`.
    - `--iter`: Number of iterations.
-   - `--um`: Scaling factor (e.g., `7.91`).
 
 2. **Render a Flattened Mesh**
 
