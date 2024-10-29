@@ -41,66 +41,8 @@ class Flatboi:
         else:
             self.output_obj = obj_path.replace(".obj", "_flatboi.obj")
         self.max_iter = max_iter
-        self.um = um
-        obj_path = self.downsample_mesh()
         self.read_mesh(obj_path)
         self.filter_mesh()
-
-    def downsample_mesh(self):
-        # Load the initial mesh
-        self.read_mesh(self.input_obj)
-
-        # Load the mesh vertices (V) and faces (F) with Libigl
-        V, F = igl.read_triangle_mesh(self.input_obj)
-        
-        # Compute the area of each triangle and the total surface area
-        triangle_areas = igl.doublearea(V, F) / 2.0
-        total_area = np.sum(triangle_areas)
-        total_area = total_area * self.um * self.um / (1000.0 * 1000.0)
-        print("Total surface area (sqmm):", total_area)
-        print("Average area (sqmm) per triangle:", total_area / F.shape[0])
-
-        # Determine the target number of triangles
-        target_area_per_triangle = 0.1  # Desired area (sqmm) per triangle
-        target_num_triangles = int(total_area / target_area_per_triangle)
-
-        if target_num_triangles >= F.shape[0]:
-            print("No need to downsample")
-            return self.input_obj
-
-        # Decimate the mesh
-        print(f"Target number of triangles: {target_num_triangles}")
-        success, U, G, J, I = igl.decimate(V, F, target_num_triangles)
-        if not success:
-            print("Decimation failed.")
-            return None
-
-        # Create a new Open3D mesh from the downsampled vertices and faces
-        downsampled_mesh = o3d.geometry.TriangleMesh()
-        downsampled_mesh.vertices = o3d.utility.Vector3dVector(U)
-        downsampled_mesh.triangles = o3d.utility.Vector3iVector(G)
-        
-        # Handle normals
-        if hasattr(self, 'vertex_normals') and len(self.vertex_normals) > 0:
-            downsampled_mesh.vertex_normals = o3d.utility.Vector3dVector(self.vertex_normals[I])
-        else:
-            downsampled_mesh.compute_vertex_normals()
-
-        if self.original_uvs is not None and self.original_uvs.size > 0:
-            # Map UVs
-            uvs = self.original_uvs.reshape((-1, 3, 2))
-            downsampled_uvs = uvs[J].reshape(-1, 2)
-            downsampled_mesh.triangle_uvs = o3d.utility.Vector2dVector(downsampled_uvs)
-        else:
-            print("Original mesh has no UVs; skipping UV mapping.")
-
-        # Save the mesh
-        obj_path = self.input_obj.replace(".obj", "_downsampled.obj")
-        o3d.io.write_triangle_mesh(obj_path, downsampled_mesh)
-        print("Downsampled mesh saved.")
-        return obj_path
-
-
         
     def read_mesh(self, obj_path):
         self.mesh = o3d.io.read_triangle_mesh(obj_path)
@@ -551,7 +493,6 @@ def main():
     parser.add_argument('--ic', type=str, help='Initial condition for SLIM. Options: original, arap, harmonic', default='arap')
     parser.add_argument('--axis', type=str, help='Volume axis for alignment. Options: x, y, z', default='z')
     parser.add_argument('--rotate', type=int, help='Angle to add to the best alignment angle. Default is 180 degrees.', default=180)
-    parser.add_argument('--um', type=float, help='Unit size in um.', default=7.91)
 
     # Take arguments back over
     args = parser.parse_args()
@@ -575,7 +516,7 @@ def main():
 
     print(f"Adding UV coordinates to mesh {path}")
 
-    flatboi = Flatboi(path, args.iter, um=args.um)
+    flatboi = Flatboi(path, args.iter)
     harmonic_uvs, harmonic_energies = flatboi.slim(initial_condition=args.ic)
     
 	# Align the UV map
