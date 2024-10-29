@@ -53,7 +53,7 @@ The package provides command-line utilities for working with mesh files. For mor
 
    - First argument: Path to the flattened mesh file.
    - Second argument: Scroll volume, can be zarr, tifstack or grid cells.
-   - `--r`: Number of layers in the surface volume (e.g., `32`).
+   - `--r`: Half number of layers in the surface volume besides the center (e.g., `32` will give 65 layers, the middle +- 32).
 
 For additional options and usage information, use `--help` with any command (e.g., `slim_uv --help` or `mesh_to_surface --help`).
 
