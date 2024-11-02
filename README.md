@@ -53,6 +53,10 @@ The package provides command-line utilities for working with mesh files. For mor
    - First argument: Path to the flattened mesh file.
    - Second argument: Scroll volume, can be zarr, tifstack or grid cells.
    - `--r`: Half number of layers in the surface volume besides the center (e.g., `32` will give 65 layers, the middle +- 32).
+   - `--triangle_batch`: Choose how many triangles to process per batch, default `5000`
+   - `--max_side_triangle`: Choose the max length of the side of a triangle when creating dataset, default `10`
+   - `--nr_workers`: Choose nr workers to load the dataset
+   - `--prefetch_factor`: Choose the prefetch factor, default `2`
 
 For additional options and usage information, use `--help` with any command (e.g., `slim_uv --help` or `mesh_to_surface --help`).
 
