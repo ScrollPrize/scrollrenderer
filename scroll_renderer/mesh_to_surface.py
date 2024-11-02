@@ -708,10 +708,11 @@ class MeshDataset(Dataset):
         return grid_coord, grid_cell_tensor, vertices_tensor, normals_tensor, uv_tensor
 
 class PPMAndTextureModel(pl.LightningModule):
-    def __init__(self, r: int = 32, max_side_triangle: int = 10):
+    def __init__(self, r: int = 32, max_side_triangle: int = 10, max_triangles_per_loop: int = 5000):
         print("instantiating model")
         self.r = r
         self.max_side_triangle = max_side_triangle
+        self.max_triangles_per_loop = max_triangles_per_loop
         self.new_order = [2,1,0] # [2,1,0], [2,0,1], [0,2,1], [0,1,2], [1,2,0], [1,0,2]
         super().__init__()
 
@@ -778,16 +779,15 @@ class PPMAndTextureModel(pl.LightningModule):
         min_uv = torch.floor(min_uv)
 
         nr_triangles = vertices.shape[0]
-        max_triangles_per_loop = 5000
         values_list = []
         grid_points_list = []
-        for i in range(0, nr_triangles, max_triangles_per_loop):
-            min_uv_ = min_uv[i:i+max_triangles_per_loop]
-            grid_coords_ = grid_coords[i:i+max_triangles_per_loop]
-            vertices_ = vertices[i:i+max_triangles_per_loop]
-            normals_ = normals[i:i+max_triangles_per_loop]
-            uv_coords_triangles_ = uv_coords_triangles[i:i+max_triangles_per_loop]
-            grid_index_ = grid_index[i:i+max_triangles_per_loop]
+        for i in range(0, nr_triangles, self.max_triangles_per_loop):
+            min_uv_ = min_uv[i:i+self.max_triangles_per_loop]
+            grid_coords_ = grid_coords[i:i+self.max_triangles_per_loop]
+            vertices_ = vertices[i:i+self.max_triangles_per_loop]
+            normals_ = normals[i:i+self.max_triangles_per_loop]
+            uv_coords_triangles_ = uv_coords_triangles[i:i+self.max_triangles_per_loop]
+            grid_index_ = grid_index[i:i+self.max_triangles_per_loop]
 
             # Step 2: Generate Meshgrids for All Triangles
             # create grid points tensor: T x W*H x 2
@@ -932,7 +932,7 @@ def custom_collate_fn(batch):
     except:
         return None, None, None, None, None, None
     
-def ppm_and_texture(obj_path, scroll, output_path=None, grid_size=500, gpus=1, batch_size=1, r=32, format='jpg', max_side_triangle: int = 10, display=False, nr_workers=None, prefetch_factor=2):
+def ppm_and_texture(obj_path, scroll, output_path=None, grid_size=500, gpus=1, batch_size=1, r=32, format='jpg', max_side_triangle: int = 10, max_triangles_per_loop: int = 5000, display=False, nr_workers=None, prefetch_factor=2):
     # Number of workers
     num_threads = multiprocessing.cpu_count() // int(1.5 * int(gpus))
     num_treads_for_gpus = 12
@@ -953,20 +953,20 @@ def ppm_and_texture(obj_path, scroll, output_path=None, grid_size=500, gpus=1, b
     # Check scroll format
     elif os.path.isdir(scroll):
         # Look for files matching the grid cell pattern
-        pattern = os.path.join(scroll, "cell_yxz_???.???.???.tif")
+        pattern = os.path.join(scroll, "cell_yxz_[0-9][0-9][0-9]_[0-9][0-9][0-9]_[0-9][0-9][0-9].tif")
         matching_files = glob.glob(pattern)
 
         if matching_files:
             scroll_format = "grid cells"
-            # Use the pattern path for accessing grid cell files
-            scroll = os.path.join(scroll, "cell_yxz_{:03}_{:03}_{:03}.tif")
+            # Use a formatted path for accessing grid cell files
+            scroll = os.path.join(scroll, "cell_yxz_{:03d}_{:03d}_{:03d}.tif")
         else:
             scroll_format = "tifstack"
 
     # Initialize the dataset and dataloader
     dataset = MeshDataset(obj_path, scroll, scroll_format=scroll_format, output_path=output_path, grid_size=grid_size, r=r, max_side_triangle=max_side_triangle, max_workers=max_workers, display=display)
     dataloader = DataLoader(dataset, batch_size=batch_size, collate_fn=custom_collate_fn, shuffle=False, num_workers=num_workers, prefetch_factor=prefetch_factor)
-    model = PPMAndTextureModel(r=r, max_side_triangle=max_side_triangle)
+    model = PPMAndTextureModel(r=r, max_side_triangle=max_side_triangle, max_triangles_per_loop=max_triangles_per_loop)
     
     writer = dataset.get_writer()
     trainer = pl.Trainer(callbacks=[writer], accelerator='gpu', devices=int(gpus), strategy="ddp")
@@ -988,6 +988,7 @@ def main():
     parser.add_argument('--r', type=int, default=32)
     parser.add_argument('--format', type=str, default='jpg')
     parser.add_argument('--max_side_triangle', type=int, default=10)
+    parser.add_argument('--triangle_batch', type=int, default=5000)
     parser.add_argument('--display', action='store_true')
     parser.add_argument('--nr_workers', type=int, default=None)
     parser.add_argument('--prefetch_factor', type=int, default=2)
@@ -1005,6 +1006,7 @@ def main():
         r=args.r,
         format=args.format,
         max_side_triangle=args.max_side_triangle,
+        max_triangles_per_loop=args.triangle_batch,
         display=args.display,
         nr_workers=args.nr_workers,
         prefetch_factor=args.prefetch_factor
