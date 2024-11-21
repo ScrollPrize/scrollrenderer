@@ -1,3 +1,5 @@
+> **_NOTE:_** Now maintained at https://github.com/ScrollPrize/villa/tree/main/scroll-renderer (this repository archived)
+
 # Scroll Renderer
 
 Scroll Renderer is a Python package developed by the Vesuvius Challenge Team 2024. It provides tools for flattening and rendering 3D meshes of segments of the Herculaneum Papyri. It is currently in alpha version.
